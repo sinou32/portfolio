@@ -1,23 +1,15 @@
-from fastapi import FastAPI, APIRouter
-from dotenv import load_dotenv
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, Header
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from starlette.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
-import os
+from typing import List, Optional
 import logging
-from pathlib import Path
-from pydantic import BaseModel, Field
-from typing import List
-import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
+from bson import ObjectId
 
-
-ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
-
-# MongoDB connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+# Import our modules
+from models import Project, ProjectCreate, ProjectUpdate, LoginRequest, LoginResponse
+from auth import verify_password, create_access_token, verify_token
+from database import db, projects_collection, seed_database, close_db_connection
 
 # Create the main app without a prefix
 app = FastAPI()
@@ -25,36 +17,163 @@ app = FastAPI()
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
+# Security
+security = HTTPBearer()
 
-# Define Models
-class StatusCheck(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    client_name: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-class StatusCheckCreate(BaseModel):
-    client_name: str
 
-# Add your routes to the router instead of directly to app
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Dependency to get current authenticated user"""
+    token = credentials.credentials
+    payload = verify_token(token)
+    if payload is None:
+        raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+    return payload
+
+
+# Public endpoints
 @api_router.get("/")
 async def root():
-    return {"message": "Hello World"}
+    return {"message": "Architectural Portfolio API"}
 
-@api_router.post("/status", response_model=StatusCheck)
-async def create_status_check(input: StatusCheckCreate):
-    status_dict = input.dict()
-    status_obj = StatusCheck(**status_dict)
-    _ = await db.status_checks.insert_one(status_obj.dict())
-    return status_obj
 
-@api_router.get("/status", response_model=List[StatusCheck])
-async def get_status_checks():
-    status_checks = await db.status_checks.find().to_list(1000)
-    return [StatusCheck(**status_check) for status_check in status_checks]
+@api_router.get("/projects", response_model=List[Project])
+async def get_projects():
+    """Get all projects for public portfolio view"""
+    try:
+        projects_cursor = projects_collection.find({})
+        projects = await projects_cursor.to_list(length=100)
+        
+        # Convert ObjectId to string for each project
+        for project in projects:
+            project["_id"] = str(project["_id"])
+            
+        return projects
+    except Exception as e:
+        logger.error(f"Error fetching projects: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+# Authentication endpoints
+@api_router.post("/auth/login", response_model=LoginResponse)
+async def login(login_request: LoginRequest):
+    """Admin login"""
+    if not verify_password(login_request.password):
+        raise HTTPException(status_code=401, detail="Invalid password")
+    
+    access_token_expires = timedelta(hours=24)
+    access_token = create_access_token(
+        data={"sub": "admin"}, expires_delta=access_token_expires
+    )
+    
+    return LoginResponse(
+        message="Login successful",
+        token=access_token,
+        success=True
+    )
+
+
+@api_router.get("/auth/verify")
+async def verify_authentication(current_user: dict = Depends(get_current_user)):
+    """Verify current authentication status"""
+    return {"message": "Authentication valid", "user": current_user["sub"]}
+
+
+# Protected admin endpoints
+@api_router.post("/admin/projects", response_model=Project)
+async def create_project(
+    project_data: ProjectCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    """Create a new project (admin only)"""
+    try:
+        # Add timestamps
+        project_dict = project_data.dict()
+        project_dict["created_at"] = datetime.utcnow()
+        project_dict["updated_at"] = datetime.utcnow()
+        
+        # Insert into database
+        result = await projects_collection.insert_one(project_dict)
+        
+        # Fetch the created project
+        created_project = await projects_collection.find_one({"_id": result.inserted_id})
+        created_project["_id"] = str(created_project["_id"])
+        
+        return created_project
+    except Exception as e:
+        logger.error(f"Error creating project: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create project")
+
+
+@api_router.put("/admin/projects/{project_id}", response_model=Project)
+async def update_project(
+    project_id: str,
+    project_data: ProjectUpdate,
+    current_user: dict = Depends(get_current_user)
+):
+    """Update a project (admin only)"""
+    try:
+        # Validate ObjectId
+        if not ObjectId.is_valid(project_id):
+            raise HTTPException(status_code=400, detail="Invalid project ID")
+        
+        # Update data
+        update_dict = project_data.dict()
+        update_dict["updated_at"] = datetime.utcnow()
+        
+        # Update in database
+        result = await projects_collection.update_one(
+            {"_id": ObjectId(project_id)},
+            {"$set": update_dict}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Project not found")
+        
+        # Fetch updated project
+        updated_project = await projects_collection.find_one({"_id": ObjectId(project_id)})
+        updated_project["_id"] = str(updated_project["_id"])
+        
+        return updated_project
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating project: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update project")
+
+
+@api_router.delete("/admin/projects/{project_id}")
+async def delete_project(
+    project_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Delete a project (admin only)"""
+    try:
+        # Validate ObjectId
+        if not ObjectId.is_valid(project_id):
+            raise HTTPException(status_code=400, detail="Invalid project ID")
+        
+        # Delete from database
+        result = await projects_collection.delete_one({"_id": ObjectId(project_id)})
+        
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Project not found")
+        
+        return {"message": "Project deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting project: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete project")
+
 
 # Include the router in the main app
 app.include_router(api_router)
 
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -63,13 +182,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+
+@app.on_event("startup")
+async def startup_db():
+    """Initialize database on startup"""
+    await seed_database()
+
 
 @app.on_event("shutdown")
-async def shutdown_db_client():
-    client.close()
+async def shutdown_db():
+    """Close database connection on shutdown"""
+    await close_db_connection()
