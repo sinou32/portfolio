@@ -32,18 +32,22 @@ const AdminDashboard = ({ onLogout, onGoHome }) => {
   });
 
   useEffect(() => {
-    loadProjects();
+    loadDashboardData();
   }, []);
 
-  const loadProjects = async () => {
+  const loadDashboardData = async () => {
     try {
       setLoading(true);
-      const data = await fetchProjects();
-      setProjects(data);
+      const [projectsData, bioData] = await Promise.all([
+        fetchProjects(),
+        fetchPortfolioBio()
+      ]);
+      setProjects(projectsData);
+      setPortfolioBio(bioData);
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to load projects",
+        description: "Failed to load dashboard data",
         variant: "destructive"
       });
     } finally {
