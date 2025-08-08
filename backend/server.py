@@ -7,9 +7,9 @@ from datetime import datetime, timedelta
 from bson import ObjectId
 
 # Import our modules
-from models import Project, ProjectCreate, ProjectUpdate, LoginRequest, LoginResponse
+from models import Project, ProjectCreate, ProjectUpdate, PortfolioBio, PortfolioBioUpdate, LoginRequest, LoginResponse
 from auth import verify_password, create_access_token, verify_token
-from database import db, projects_collection, seed_database, close_db_connection
+from database import db, projects_collection, bio_collection, seed_database, close_db_connection
 
 # Create the main app without a prefix
 app = FastAPI()
@@ -54,6 +54,23 @@ async def get_projects():
         return projects
     except Exception as e:
         logger.error(f"Error fetching projects: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@api_router.get("/portfolio-bio", response_model=PortfolioBio)
+async def get_portfolio_bio():
+    """Get portfolio bio/description for public view"""
+    try:
+        bio = await bio_collection.find_one({})
+        if bio:
+            bio["_id"] = str(bio["_id"])
+            return bio
+        else:
+            # Return default if none exists
+            default_bio = {"_id": "default", "bio_text": "", "bio_enabled": False, "updated_at": datetime.utcnow()}
+            return default_bio
+    except Exception as e:
+        logger.error(f"Error fetching bio: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
@@ -168,6 +185,37 @@ async def delete_project(
     except Exception as e:
         logger.error(f"Error deleting project: {e}")
         raise HTTPException(status_code=500, detail="Failed to delete project")
+
+
+@api_router.put("/admin/portfolio-bio", response_model=PortfolioBio)
+async def update_portfolio_bio(
+    bio_data: PortfolioBioUpdate,
+    current_user: dict = Depends(get_current_user)
+):
+    """Update portfolio bio/description (admin only)"""
+    try:
+        # Update data
+        update_dict = bio_data.dict()
+        update_dict["updated_at"] = datetime.utcnow()
+        
+        # Update or insert bio
+        result = await bio_collection.update_one(
+            {},  # Update any existing bio
+            {"$set": update_dict},
+            upsert=True
+        )
+        
+        # Fetch updated bio
+        updated_bio = await bio_collection.find_one({})
+        if updated_bio:
+            updated_bio["_id"] = str(updated_bio["_id"])
+            return updated_bio
+        else:
+            raise HTTPException(status_code=500, detail="Failed to update bio")
+            
+    except Exception as e:
+        logger.error(f"Error updating bio: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update bio")
 
 
 # Include the router in the main app

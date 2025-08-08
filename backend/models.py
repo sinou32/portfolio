@@ -31,6 +31,23 @@ class Project(ProjectBase):
         populate_by_name = True
 
 
+class PortfolioBioBase(BaseModel):
+    bio_text: str = ""
+    bio_enabled: bool = False
+
+
+class PortfolioBioUpdate(PortfolioBioBase):
+    pass
+
+
+class PortfolioBio(PortfolioBioBase):
+    id: str = Field(alias="_id")
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Config:
+        populate_by_name = True
+
+
 class LoginRequest(BaseModel):
     password: str
 

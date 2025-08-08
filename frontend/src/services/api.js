@@ -43,6 +43,16 @@ export const fetchProjects = async () => {
   }
 };
 
+export const fetchPortfolioBio = async () => {
+  try {
+    const response = await api.get('/portfolio-bio');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching portfolio bio:', error);
+    throw error;
+  }
+};
+
 // Auth API calls
 export const login = async (password) => {
   try {
@@ -91,6 +101,16 @@ export const deleteProject = async (projectId) => {
     return response.data;
   } catch (error) {
     console.error('Error deleting project:', error);
+    throw error;
+  }
+};
+
+export const updatePortfolioBio = async (bioData) => {
+  try {
+    const response = await api.put('/admin/portfolio-bio', bioData);
+    return response.data;
+  } catch (error) {
+    console.error('Error updating portfolio bio:', error);
     throw error;
   }
 };

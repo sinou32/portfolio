@@ -13,6 +13,7 @@ db: AsyncIOMotorDatabase = client[os.environ.get('DB_NAME', 'architectural_portf
 
 # Collections
 projects_collection = db.projects
+bio_collection = db.portfolio_bio
 
 # Sample data for seeding
 SAMPLE_PROJECTS = [
@@ -70,18 +71,34 @@ SAMPLE_PROJECTS = [
     }
 ]
 
+# Default bio content
+DEFAULT_BIO = {
+    "bio_text": "",
+    "bio_enabled": False
+}
+
 
 async def seed_database():
     """Seed database with sample projects if empty"""
     try:
         # Check if projects already exist
-        count = await projects_collection.count_documents({})
-        if count == 0:
+        project_count = await projects_collection.count_documents({})
+        if project_count == 0:
             # Insert sample projects
             await projects_collection.insert_many(SAMPLE_PROJECTS)
             print(f"✅ Seeded database with {len(SAMPLE_PROJECTS)} projects")
         else:
-            print(f"ℹ️  Database already has {count} projects")
+            print(f"ℹ️  Database already has {project_count} projects")
+        
+        # Check if bio exists
+        bio_count = await bio_collection.count_documents({})
+        if bio_count == 0:
+            # Insert default bio
+            await bio_collection.insert_one(DEFAULT_BIO)
+            print("✅ Initialized portfolio bio settings")
+        else:
+            print("ℹ️  Portfolio bio already configured")
+            
     except Exception as e:
         print(f"❌ Error seeding database: {e}")
 
