@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Download } from 'lucide-react';
-import html2pdf from 'html2pdf.js/dist/html2pdf.min.js';
+// Removed html2pdf for now to test basic functionality
+// import html2pdf from 'html2pdf.js/dist/html2pdf.min.js';
 import { mockProjects } from '../mock';
 
 const Portfolio = () => {
