@@ -58,8 +58,25 @@ const Portfolio = () => {
     }
   };
 
-  const exportToPDF = () => {
-    alert('PDF export functionality will be implemented shortly');
+  const exportToPDF = async () => {
+    try {
+      // Dynamically import html2pdf
+      const html2pdf = await import('html2pdf.js');
+      
+      const element = document.getElementById('portfolio-content');
+      const opt = {
+        margin: 0.5,
+        filename: 'architectural-portfolio.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+      };
+      
+      html2pdf.default().set(opt).from(element).save();
+    } catch (error) {
+      console.error('PDF export error:', error);
+      alert('PDF export functionality temporarily unavailable. Please try again later.');
+    }
   };
 
   const scrollToProject = (index) => {
