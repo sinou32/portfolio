@@ -168,6 +168,28 @@ const AdminDashboard = ({ onLogout, onGoHome }) => {
     onLogout();
   };
 
+  const handleBioUpdate = async (e) => {
+    e.preventDefault();
+    setBioSaving(true);
+    
+    try {
+      await updatePortfolioBio(portfolioBio);
+      toast({
+        title: "Bio updated",
+        description: "Portfolio bio has been successfully updated.",
+      });
+      setShowBioForm(false);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.detail || "Failed to update bio",
+        variant: "destructive"
+      });
+    } finally {
+      setBioSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-stone-50 flex items-center justify-center">
