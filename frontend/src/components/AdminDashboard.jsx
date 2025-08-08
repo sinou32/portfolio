@@ -117,7 +117,7 @@ const AdminDashboard = ({ onLogout, onGoHome }) => {
       }
 
       resetForm();
-      await loadProjects();
+      await loadDashboardData();
     } catch (error) {
       toast({
         title: "Error",
