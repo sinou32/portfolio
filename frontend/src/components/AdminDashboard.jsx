@@ -5,19 +5,17 @@ import { Textarea } from './ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Label } from './ui/label';
 import { Switch } from './ui/switch';
-import { Plus, Trash2, Upload, LogOut, Home } from 'lucide-react';
-import { mockProjects, setAuthenticated } from '../mock';
+import { Plus, Trash2, LogOut, Home } from 'lucide-react';
+import { fetchProjects, createProject, updateProject, deleteProject, clearAuthToken } from '../services/api';
 import { useToast } from '../hooks/use-toast';
 
 const AdminDashboard = ({ onLogout, onGoHome }) => {
   const [projects, setProjects] = useState([]);
   const [editingProject, setEditingProject] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const { toast } = useToast();
-
-  useEffect(() => {
-    setProjects(mockProjects);
-  }, []);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -26,9 +24,29 @@ const AdminDashboard = ({ onLogout, onGoHome }) => {
     client: '',
     location: '',
     images: [''],
-    planView: '',
-    hasPlanView: false
+    plan_view: '',
+    has_plan_view: false
   });
+
+  useEffect(() => {
+    loadProjects();
+  }, []);
+
+  const loadProjects = async () => {
+    try {
+      setLoading(true);
+      const data = await fetchProjects();
+      setProjects(data);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load projects",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const resetForm = () => {
     setFormData({
@@ -38,8 +56,8 @@ const AdminDashboard = ({ onLogout, onGoHome }) => {
       client: '',
       location: '',
       images: [''],
-      planView: '',
-      hasPlanView: false
+      plan_view: '',
+      has_plan_view: false
     });
     setEditingProject(null);
     setShowAddForm(false);
@@ -67,60 +85,89 @@ const AdminDashboard = ({ onLogout, onGoHome }) => {
     setFormData(prev => ({ ...prev, images: newImages }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setSaving(true);
     
-    const projectData = {
-      ...formData,
-      images: formData.images.filter(img => img.trim() !== ''),
-      id: editingProject ? editingProject.id : Date.now()
-    };
+    try {
+      const projectData = {
+        ...formData,
+        images: formData.images.filter(img => img.trim() !== '')
+      };
 
-    if (editingProject) {
-      setProjects(prev => prev.map(p => p.id === editingProject.id ? projectData : p));
+      if (editingProject) {
+        await updateProject(editingProject.id || editingProject._id, projectData);
+        toast({
+          title: "Project updated",
+          description: "Project has been successfully updated.",
+        });
+      } else {
+        await createProject(projectData);
+        toast({
+          title: "Project added",
+          description: "New project has been successfully added.",
+        });
+      }
+
+      resetForm();
+      await loadProjects();
+    } catch (error) {
       toast({
-        title: "Project updated",
-        description: "Project has been successfully updated.",
+        title: "Error",
+        description: error.response?.data?.detail || "Failed to save project",
+        variant: "destructive"
       });
-    } else {
-      setProjects(prev => [...prev, projectData]);
-      toast({
-        title: "Project added",
-        description: "New project has been successfully added.",
-      });
+    } finally {
+      setSaving(false);
     }
-
-    resetForm();
   };
 
   const handleEdit = (project) => {
     setFormData({
-      title: project.title,
-      description: project.description,
-      year: project.year,
-      client: project.client,
-      location: project.location,
-      images: project.images.length > 0 ? project.images : [''],
-      planView: project.planView || '',
-      hasPlanView: project.hasPlanView
+      title: project.title || '',
+      description: project.description || '',
+      year: project.year || '',
+      client: project.client || '',
+      location: project.location || '',
+      images: project.images && project.images.length > 0 ? project.images : [''],
+      plan_view: project.plan_view || '',
+      has_plan_view: project.has_plan_view || false
     });
     setEditingProject(project);
     setShowAddForm(true);
   };
 
-  const handleDelete = (id) => {
-    setProjects(prev => prev.filter(p => p.id !== id));
-    toast({
-      title: "Project deleted",
-      description: "Project has been successfully deleted.",
-      variant: "destructive"
-    });
+  const handleDelete = async (project) => {
+    if (!window.confirm('Are you sure you want to delete this project?')) return;
+
+    try {
+      await deleteProject(project.id || project._id);
+      toast({
+        title: "Project deleted",
+        description: "Project has been successfully deleted.",
+      });
+      await loadProjects();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete project",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleLogout = () => {
-    setAuthenticated(false);
+    clearAuthToken();
     onLogout();
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-stone-50 flex items-center justify-center">
+        <div className="text-slate-600">Loading dashboard...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-stone-50">
@@ -272,22 +319,22 @@ const AdminDashboard = ({ onLogout, onGoHome }) => {
                 <div className="space-y-4">
                   <div className="flex items-center space-x-3">
                     <Switch
-                      id="hasPlanView"
-                      checked={formData.hasPlanView}
-                      onCheckedChange={(checked) => handleInputChange('hasPlanView', checked)}
+                      id="has_plan_view"
+                      checked={formData.has_plan_view}
+                      onCheckedChange={(checked) => handleInputChange('has_plan_view', checked)}
                     />
-                    <Label htmlFor="hasPlanView" className="text-slate-700">
+                    <Label htmlFor="has_plan_view" className="text-slate-700">
                       Include Plan View
                     </Label>
                   </div>
                   
-                  {formData.hasPlanView && (
+                  {formData.has_plan_view && (
                     <div>
-                      <Label htmlFor="planView" className="text-slate-700">Plan View URL</Label>
+                      <Label htmlFor="plan_view" className="text-slate-700">Plan View URL</Label>
                       <Input
-                        id="planView"
-                        value={formData.planView}
-                        onChange={(e) => handleInputChange('planView', e.target.value)}
+                        id="plan_view"
+                        value={formData.plan_view}
+                        onChange={(e) => handleInputChange('plan_view', e.target.value)}
                         className="border-slate-300"
                         placeholder="Plan view image URL"
                       />
@@ -296,8 +343,12 @@ const AdminDashboard = ({ onLogout, onGoHome }) => {
                 </div>
 
                 <div className="flex gap-3">
-                  <Button type="submit" className="bg-slate-800 hover:bg-slate-700 text-white">
-                    {editingProject ? 'Update Project' : 'Add Project'}
+                  <Button 
+                    type="submit" 
+                    className="bg-slate-800 hover:bg-slate-700 text-white"
+                    disabled={saving}
+                  >
+                    {saving ? 'Saving...' : (editingProject ? 'Update Project' : 'Add Project')}
                   </Button>
                   <Button type="button" variant="outline" onClick={resetForm}>
                     Cancel
@@ -315,7 +366,7 @@ const AdminDashboard = ({ onLogout, onGoHome }) => {
           </h2>
           
           {projects.map((project) => (
-            <Card key={project.id} className="border-slate-200">
+            <Card key={project.id || project._id} className="border-slate-200">
               <CardContent className="p-6">
                 <div className="flex justify-between items-start mb-4">
                   <div>
@@ -339,7 +390,7 @@ const AdminDashboard = ({ onLogout, onGoHome }) => {
                     <Button 
                       variant="outline" 
                       size="sm"
-                      onClick={() => handleDelete(project.id)}
+                      onClick={() => handleDelete(project)}
                       className="text-red-600 hover:text-red-700 hover:bg-red-50"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -347,13 +398,15 @@ const AdminDashboard = ({ onLogout, onGoHome }) => {
                   </div>
                 </div>
                 
-                <p className="text-slate-700 mb-4 line-clamp-3">
-                  {project.description}
-                </p>
+                {project.description && (
+                  <p className="text-slate-700 mb-4 line-clamp-3">
+                    {project.description}
+                  </p>
+                )}
                 
                 <div className="text-sm text-slate-500">
-                  {project.images.length} image{project.images.length !== 1 ? 's' : ''}
-                  {project.hasPlanView && ' • Plan view included'}
+                  {project.images?.length || 0} image{(project.images?.length || 0) !== 1 ? 's' : ''}
+                  {project.has_plan_view && ' • Plan view included'}
                 </div>
               </CardContent>
             </Card>

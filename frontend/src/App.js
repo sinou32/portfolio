@@ -5,23 +5,48 @@ import Portfolio from './components/Portfolio';
 import AdminLogin from './components/AdminLogin';
 import AdminDashboard from './components/AdminDashboard';
 import { Toaster } from './components/ui/toaster';
-import { checkAuthentication, setAuthenticated } from './mock';
+import { isAuthenticated, verifyAuth, clearAuthToken } from './services/api';
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authState, setAuthState] = useState({
+    isAuthenticated: false,
+    loading: true
+  });
 
   useEffect(() => {
-    setIsAuthenticated(checkAuthentication());
+    checkAuthStatus();
   }, []);
 
+  const checkAuthStatus = async () => {
+    if (!isAuthenticated()) {
+      setAuthState({ isAuthenticated: false, loading: false });
+      return;
+    }
+
+    try {
+      await verifyAuth();
+      setAuthState({ isAuthenticated: true, loading: false });
+    } catch (error) {
+      clearAuthToken();
+      setAuthState({ isAuthenticated: false, loading: false });
+    }
+  };
+
   const handleLogin = () => {
-    setIsAuthenticated(true);
+    setAuthState({ isAuthenticated: true, loading: false });
   };
 
   const handleLogout = () => {
-    setIsAuthenticated(false);
-    setAuthenticated(false);
+    setAuthState({ isAuthenticated: false, loading: false });
   };
+
+  if (authState.loading) {
+    return (
+      <div className="min-h-screen bg-stone-50 flex items-center justify-center">
+        <div className="text-slate-600">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="App">
@@ -31,7 +56,7 @@ function App() {
           <Route 
             path="/admin" 
             element={
-              !isAuthenticated ? (
+              !authState.isAuthenticated ? (
                 <AdminLogin onLogin={handleLogin} />
               ) : (
                 <Navigate to="/admin/dashboard" replace />
@@ -41,7 +66,7 @@ function App() {
           <Route 
             path="/admin/dashboard" 
             element={
-              isAuthenticated ? (
+              authState.isAuthenticated ? (
                 <AdminDashboard 
                   onLogout={handleLogout}
                   onGoHome={() => window.location.href = '/'}

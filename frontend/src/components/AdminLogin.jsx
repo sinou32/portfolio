@@ -3,7 +3,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Lock, Eye, EyeOff } from 'lucide-react';
-import { mockAuth, setAuthenticated } from '../mock';
+import { login, setAuthToken } from '../services/api';
 import { useToast } from '../hooks/use-toast';
 
 const AdminLogin = ({ onLogin }) => {
@@ -16,25 +16,25 @@ const AdminLogin = ({ onLogin }) => {
     e.preventDefault();
     setLoading(true);
 
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    if (password === mockAuth.password) {
-      setAuthenticated(true);
-      toast({
-        title: "Login successful",
-        description: "Welcome to the admin dashboard",
-      });
-      onLogin();
-    } else {
+    try {
+      const response = await login(password);
+      if (response.success) {
+        setAuthToken(response.token);
+        toast({
+          title: "Login successful",
+          description: "Welcome to the admin dashboard",
+        });
+        onLogin();
+      }
+    } catch (error) {
       toast({
         title: "Login failed",
-        description: "Incorrect password. Please try again.",
+        description: error.response?.data?.detail || "Incorrect password. Please try again.",
         variant: "destructive"
       });
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (
