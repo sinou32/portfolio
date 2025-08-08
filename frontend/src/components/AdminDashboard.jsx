@@ -11,10 +11,13 @@ import { useToast } from '../hooks/use-toast';
 
 const AdminDashboard = ({ onLogout, onGoHome }) => {
   const [projects, setProjects] = useState([]);
+  const [portfolioBio, setPortfolioBio] = useState({ bio_text: '', bio_enabled: false });
   const [editingProject, setEditingProject] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showBioForm, setShowBioForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [bioSaving, setBioSaving] = useState(false);
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
