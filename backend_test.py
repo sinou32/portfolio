@@ -532,6 +532,235 @@ class ArchitecturalPortfolioTester:
             self.log_test("Delete Project Unauthenticated", False, f"Exception: {str(e)}")
             return False
     
+    async def test_get_portfolio_bio_default(self):
+        """Test 16: Get default portfolio bio (public endpoint)"""
+        try:
+            response = await self.session.get(f"{BACKEND_URL}/portfolio-bio")
+            
+            if response.status == 200:
+                bio = await response.json()
+                
+                # Check required fields
+                required_fields = ["_id", "bio_text", "bio_enabled", "updated_at"]
+                has_all_fields = all(field in bio for field in required_fields)
+                
+                if has_all_fields:
+                    # Check default values
+                    if bio["bio_text"] == "" and bio["bio_enabled"] == False:
+                        self.log_test("Get Portfolio Bio Default", True, 
+                                    "Successfully retrieved default portfolio bio")
+                        return True
+                    else:
+                        self.log_test("Get Portfolio Bio Default", True, 
+                                    f"Retrieved portfolio bio with custom values: enabled={bio['bio_enabled']}")
+                        return True
+                else:
+                    missing = [f for f in required_fields if f not in bio]
+                    self.log_test("Get Portfolio Bio Default", False, 
+                                f"Bio missing required fields: {missing}")
+                    return False
+            else:
+                self.log_test("Get Portfolio Bio Default", False, 
+                            f"HTTP {response.status}: {await response.text()}")
+                return False
+        except Exception as e:
+            self.log_test("Get Portfolio Bio Default", False, f"Exception: {str(e)}")
+            return False
+    
+    async def test_update_portfolio_bio_authenticated(self):
+        """Test 17: Update portfolio bio (authenticated)"""
+        if not self.auth_token:
+            self.log_test("Update Portfolio Bio Authenticated", False, "No auth token available")
+            return False
+            
+        try:
+            bio_data = {
+                "bio_text": "I am a passionate architect with over 10 years of experience in sustainable design and urban planning. My work focuses on creating spaces that harmonize with their environment while meeting the functional needs of their users.",
+                "bio_enabled": True
+            }
+            
+            headers = {
+                "Authorization": f"Bearer {self.auth_token}",
+                "Content-Type": "application/json"
+            }
+            
+            response = await self.session.put(
+                f"{BACKEND_URL}/admin/portfolio-bio",
+                json=bio_data,
+                headers=headers
+            )
+            
+            if response.status == 200:
+                updated_bio = await response.json()
+                
+                # Verify the bio was updated correctly
+                if (updated_bio["bio_text"] == bio_data["bio_text"] and 
+                    updated_bio["bio_enabled"] == bio_data["bio_enabled"] and
+                    "_id" in updated_bio and "updated_at" in updated_bio):
+                    self.log_test("Update Portfolio Bio Authenticated", True, 
+                                "Successfully updated portfolio bio")
+                    return True
+                else:
+                    self.log_test("Update Portfolio Bio Authenticated", False, 
+                                f"Bio not properly updated: {updated_bio}")
+                    return False
+            else:
+                self.log_test("Update Portfolio Bio Authenticated", False, 
+                            f"HTTP {response.status}: {await response.text()}")
+                return False
+        except Exception as e:
+            self.log_test("Update Portfolio Bio Authenticated", False, f"Exception: {str(e)}")
+            return False
+    
+    async def test_update_portfolio_bio_unauthenticated(self):
+        """Test 18: Update portfolio bio without authentication (should fail)"""
+        try:
+            bio_data = {
+                "bio_text": "Unauthorized bio update attempt",
+                "bio_enabled": True
+            }
+            
+            response = await self.session.put(
+                f"{BACKEND_URL}/admin/portfolio-bio",
+                json=bio_data,
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response.status == 401:
+                self.log_test("Update Portfolio Bio Unauthenticated", True, 
+                            "Correctly rejected unauthenticated bio update with 401")
+                return True
+            else:
+                self.log_test("Update Portfolio Bio Unauthenticated", False, 
+                            f"Expected 401, got HTTP {response.status}")
+                return False
+        except Exception as e:
+            self.log_test("Update Portfolio Bio Unauthenticated", False, f"Exception: {str(e)}")
+            return False
+    
+    async def test_get_portfolio_bio_updated(self):
+        """Test 19: Get updated portfolio bio (verify persistence)"""
+        try:
+            response = await self.session.get(f"{BACKEND_URL}/portfolio-bio")
+            
+            if response.status == 200:
+                bio = await response.json()
+                
+                # Check if bio was properly updated and persisted
+                expected_text = "I am a passionate architect with over 10 years of experience in sustainable design and urban planning. My work focuses on creating spaces that harmonize with their environment while meeting the functional needs of their users."
+                
+                if (bio["bio_text"] == expected_text and 
+                    bio["bio_enabled"] == True and
+                    "_id" in bio and "updated_at" in bio):
+                    self.log_test("Get Portfolio Bio Updated", True, 
+                                "Successfully retrieved updated portfolio bio with correct data")
+                    return True
+                else:
+                    self.log_test("Get Portfolio Bio Updated", False, 
+                                f"Bio data doesn't match expected values: enabled={bio.get('bio_enabled')}, text_length={len(bio.get('bio_text', ''))}")
+                    return False
+            else:
+                self.log_test("Get Portfolio Bio Updated", False, 
+                            f"HTTP {response.status}: {await response.text()}")
+                return False
+        except Exception as e:
+            self.log_test("Get Portfolio Bio Updated", False, f"Exception: {str(e)}")
+            return False
+    
+    async def test_portfolio_bio_empty_text(self):
+        """Test 20: Update portfolio bio with empty text"""
+        if not self.auth_token:
+            self.log_test("Portfolio Bio Empty Text", False, "No auth token available")
+            return False
+            
+        try:
+            bio_data = {
+                "bio_text": "",
+                "bio_enabled": False
+            }
+            
+            headers = {
+                "Authorization": f"Bearer {self.auth_token}",
+                "Content-Type": "application/json"
+            }
+            
+            response = await self.session.put(
+                f"{BACKEND_URL}/admin/portfolio-bio",
+                json=bio_data,
+                headers=headers
+            )
+            
+            if response.status == 200:
+                updated_bio = await response.json()
+                
+                if (updated_bio["bio_text"] == "" and 
+                    updated_bio["bio_enabled"] == False):
+                    self.log_test("Portfolio Bio Empty Text", True, 
+                                "Successfully updated bio with empty text and disabled state")
+                    return True
+                else:
+                    self.log_test("Portfolio Bio Empty Text", False, 
+                                f"Bio not properly updated with empty values: {updated_bio}")
+                    return False
+            else:
+                self.log_test("Portfolio Bio Empty Text", False, 
+                            f"HTTP {response.status}: {await response.text()}")
+                return False
+        except Exception as e:
+            self.log_test("Portfolio Bio Empty Text", False, f"Exception: {str(e)}")
+            return False
+    
+    async def test_portfolio_bio_enabled_disabled_states(self):
+        """Test 21: Test portfolio bio enabled/disabled states"""
+        if not self.auth_token:
+            self.log_test("Portfolio Bio States", False, "No auth token available")
+            return False
+            
+        try:
+            # Test enabled state with content
+            bio_data_enabled = {
+                "bio_text": "Test bio content for enabled state verification",
+                "bio_enabled": True
+            }
+            
+            headers = {
+                "Authorization": f"Bearer {self.auth_token}",
+                "Content-Type": "application/json"
+            }
+            
+            # Update to enabled
+            response = await self.session.put(
+                f"{BACKEND_URL}/admin/portfolio-bio",
+                json=bio_data_enabled,
+                headers=headers
+            )
+            
+            if response.status != 200:
+                self.log_test("Portfolio Bio States", False, 
+                            f"Failed to update bio to enabled state: HTTP {response.status}")
+                return False
+            
+            # Verify enabled state
+            get_response = await self.session.get(f"{BACKEND_URL}/portfolio-bio")
+            if get_response.status == 200:
+                bio = await get_response.json()
+                if bio["bio_enabled"] == True and bio["bio_text"] == bio_data_enabled["bio_text"]:
+                    self.log_test("Portfolio Bio States", True, 
+                                "Successfully tested bio enabled/disabled states and content persistence")
+                    return True
+                else:
+                    self.log_test("Portfolio Bio States", False, 
+                                f"Bio state not properly persisted: enabled={bio.get('bio_enabled')}")
+                    return False
+            else:
+                self.log_test("Portfolio Bio States", False, 
+                            f"Failed to retrieve bio for state verification: HTTP {get_response.status}")
+                return False
+                
+        except Exception as e:
+            self.log_test("Portfolio Bio States", False, f"Exception: {str(e)}")
+            return False
+    
     async def run_all_tests(self):
         """Run all backend tests"""
         print("🏗️  Starting Architectural Portfolio Backend API Tests")
