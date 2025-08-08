@@ -783,7 +783,14 @@ class ArchitecturalPortfolioTester:
             self.test_invalid_object_id,
             self.test_nonexistent_project_operations,
             self.test_delete_project_authenticated,
-            self.test_delete_project_unauthenticated
+            self.test_delete_project_unauthenticated,
+            # New bio functionality tests
+            self.test_get_portfolio_bio_default,
+            self.test_update_portfolio_bio_authenticated,
+            self.test_update_portfolio_bio_unauthenticated,
+            self.test_get_portfolio_bio_updated,
+            self.test_portfolio_bio_empty_text,
+            self.test_portfolio_bio_enabled_disabled_states
         ]
         
         for test_method in test_methods:
