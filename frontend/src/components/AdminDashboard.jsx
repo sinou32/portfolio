@@ -5,8 +5,8 @@ import { Textarea } from './ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Label } from './ui/label';
 import { Switch } from './ui/switch';
-import { Plus, Trash2, LogOut, Home } from 'lucide-react';
-import { fetchProjects, createProject, updateProject, deleteProject, clearAuthToken } from '../services/api';
+import { Plus, Trash2, LogOut, Home, User } from 'lucide-react';
+import { fetchProjects, createProject, updateProject, deleteProject, clearAuthToken, fetchPortfolioBio, updatePortfolioBio } from '../services/api';
 import { useToast } from '../hooks/use-toast';
 
 const AdminDashboard = ({ onLogout, onGoHome }) => {
