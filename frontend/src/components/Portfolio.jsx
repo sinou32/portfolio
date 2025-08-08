@@ -139,7 +139,7 @@ const Portfolio = () => {
       )}
 
       {/* Main Content */}
-      <main className="pt-20">
+      <main id="portfolio-content" className="pt-20">
         <div className="max-w-6xl mx-auto px-6">
           {projects.map((project, index) => (
             <div 
