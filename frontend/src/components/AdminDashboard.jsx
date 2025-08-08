@@ -153,7 +153,7 @@ const AdminDashboard = ({ onLogout, onGoHome }) => {
         title: "Project deleted",
         description: "Project has been successfully deleted.",
       });
-      await loadProjects();
+      await loadDashboardData();
     } catch (error) {
       toast({
         title: "Error",
