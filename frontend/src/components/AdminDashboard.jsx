@@ -232,6 +232,97 @@ const AdminDashboard = ({ onLogout, onGoHome }) => {
       </header>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Bio Section */}
+        <div className="mb-8">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-medium text-slate-800">Portfolio Bio</h2>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setShowBioForm(!showBioForm)}
+              className="text-slate-600 border-slate-300"
+            >
+              <User className="w-4 h-4 mr-2" />
+              {showBioForm ? 'Cancel' : 'Edit Bio'}
+            </Button>
+          </div>
+          
+          {showBioForm ? (
+            <Card className="border-slate-200">
+              <CardHeader>
+                <CardTitle className="text-slate-800">Edit Portfolio Bio</CardTitle>
+                <p className="text-sm text-slate-600">
+                  Add a personal description that will appear at the beginning of your portfolio
+                </p>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleBioUpdate} className="space-y-4">
+                  <div className="flex items-center space-x-3">
+                    <Switch
+                      id="bio_enabled"
+                      checked={portfolioBio.bio_enabled}
+                      onCheckedChange={(checked) => setPortfolioBio(prev => ({ ...prev, bio_enabled: checked }))}
+                    />
+                    <Label htmlFor="bio_enabled" className="text-slate-700">
+                      Show bio on portfolio
+                    </Label>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="bio_text" className="text-slate-700">Bio Text</Label>
+                    <Textarea
+                      id="bio_text"
+                      value={portfolioBio.bio_text}
+                      onChange={(e) => setPortfolioBio(prev => ({ ...prev, bio_text: e.target.value }))}
+                      className="border-slate-300 min-h-[100px]"
+                      placeholder="Write a brief description about yourself and your architectural approach..."
+                    />
+                  </div>
+                  
+                  <div className="flex gap-3">
+                    <Button 
+                      type="submit" 
+                      className="bg-slate-800 hover:bg-slate-700 text-white"
+                      disabled={bioSaving}
+                    >
+                      {bioSaving ? 'Saving...' : 'Save Bio'}
+                    </Button>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={() => setShowBioForm(false)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="border-slate-200">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-slate-600 mb-1">
+                      Status: {portfolioBio.bio_enabled ? (
+                        <span className="text-green-600 font-medium">Enabled</span>
+                      ) : (
+                        <span className="text-slate-400">Disabled</span>
+                      )}
+                    </p>
+                    {portfolioBio.bio_text ? (
+                      <p className="text-slate-700 line-clamp-2">{portfolioBio.bio_text}</p>
+                    ) : (
+                      <p className="text-slate-400 italic">No bio text added</p>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* Projects Section */}
         {/* Add Project Button */}
         {!showAddForm && (
           <div className="mb-8">
